@@ -1,109 +1,174 @@
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
+// =====================
+// CONSTANTS
+// =====================
+const GROUND_Y = 170;
+
+// =====================
+// SOUNDS
+// =====================
 const jumpSound = new Audio("sounds/jump.mp3");
 const hitSound = new Audio("sounds/hit.mp3");
 
+jumpSound.volume = 0.6;
+hitSound.volume = 1;
+
+// =====================
+// GAME STATE
+// =====================
 let gameOver = false;
 let score = 0;
-document.addEventListener("click", () => {
-    jumpSound.play().then(() => {
-        jumpSound.pause();
-        jumpSound.currentTime = 0;
-    });
-}, { once: true });
 
+// =====================
 // DINO
+// =====================
 const dino = {
     x: 50,
-    y: 140,
-    width: 30,
-    height: 30,
+    y: GROUND_Y - 50,
+    width: 50,
+    height: 50,
     velocityY: 0,
     onGround: true
 };
 
+// =====================
 // OBSTACLES
+// =====================
 let obstacles = [];
 
 const gravity = 0.6;
-let speed = 4;
+let speed = 6;
+let spawnRate = 1500;
 
-// 🔊 ENABLE SOUND AFTER FIRST USER ACTION
-document.addEventListener("keydown", () => {
-    jumpSound.play().catch(() => {});
-}, { once: true });
+// =====================
+// AUDIO UNLOCK (MOBILE SAFE)
+// =====================
+function unlockAudio() {
+    [jumpSound, hitSound].forEach(s => {
+        s.play().then(() => {
+            s.pause();
+            s.currentTime = 0;
+        }).catch(() => {});
+    });
 
-// 🎮 PLAYER CONTROL (JUMP)
-document.addEventListener("keydown", (e) => {
-    if ((e.code === "Space" || e.code === "ArrowUp") && dino.onGround && !gameOver) {
-        dino.velocityY = -12;
+    document.removeEventListener("click", unlockAudio);
+    document.removeEventListener("touchstart", unlockAudio);
+}
+document.addEventListener("click", unlockAudio);
+document.addEventListener("touchstart", unlockAudio);
+
+// =====================
+// IMAGES
+// =====================
+const dinoImg = new Image();
+const obstacleImg = new Image();
+
+dinoImg.src = "images/dino.png";
+obstacleImg.src = "images/obstacle.png";
+
+let imagesReady = false;
+let loaded = 0;
+
+function imageLoaded(name) {
+    loaded++;
+    console.log(`✅ ${name} loaded`);
+    if (loaded === 2) imagesReady = true;
+}
+
+dinoImg.onload = () => imageLoaded("Dino");
+obstacleImg.onload = () => imageLoaded("Obstacle");
+
+dinoImg.onerror = () => console.error("❌ Dino image not loaded");
+obstacleImg.onerror = () => console.error("❌ Obstacle image not loaded");
+
+// =====================
+// JUMP
+// =====================
+function jump() {
+    if (dino.onGround && !gameOver) {
+        dino.velocityY = -13;
         dino.onGround = false;
-        jumpSound.currentTime = 0;
-        jumpSound.play();
     }
+}
 
-    // Restart
-    if (e.key === "r" && gameOver) {
-        location.reload();
-    }
+// =====================
+// KEYBOARD CONTROLS
+// =====================
+document.addEventListener("keydown", e => {
+    if (e.code === "Space" || e.code === "ArrowUp") jump();
+    if (e.key === "r" && gameOver) location.reload();
 });
 
-// CREATE OBSTACLE
+// =====================
+// CREATE OBSTACLE (FIXED)
+// =====================
 function createObstacle() {
+    const size = 80; // obstacle size
+
     obstacles.push({
         x: canvas.width,
-        y: 150,
-        width: 20 + Math.random() * 20,
-        height: 30
+        y: GROUND_Y - size, // 🔥 CORRECT ALIGNMENT
+        width: size,
+        height: size
     });
 }
 
-// COLLISION CHECK
-function collision(d, o) {
+// =====================
+// COLLISION
+// =====================
+function collision(a, b) {
     return (
-        d.x < o.x + o.width &&
-        d.x + d.width > o.x &&
-        d.y < o.y + o.height &&
-        d.y + d.height > o.y
+        a.x + 8 < b.x + b.width - 8 &&
+        a.x + a.width - 8 > b.x + 8 &&
+        a.y + 8 < b.y + b.height - 8 &&
+        a.y + a.height - 8 > b.y + 8
     );
 }
 
+// =====================
 // GAME LOOP
+// =====================
 function gameLoop() {
-    if (gameOver) {
-        showGameOver();
-        return;
-    }
-
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // GROUND
-    ctx.fillStyle = "black";
-    ctx.fillRect(0, 170, canvas.width, 2);
+    // Ground
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0, GROUND_Y, canvas.width, 2);
 
-    // DINO PHYSICS
+    // Physics
     dino.velocityY += gravity;
     dino.y += dino.velocityY;
 
-    if (dino.y >= 140) {
-        dino.y = 140;
+    if (dino.y >= GROUND_Y - dino.height) {
+        dino.y = GROUND_Y - dino.height;
         dino.velocityY = 0;
         dino.onGround = true;
     }
 
-    // DRAW DINO
-    ctx.fillStyle = "green";
-    ctx.fillRect(dino.x, dino.y, dino.width, dino.height);
+    // Dino
+    if (imagesReady) {
+        ctx.drawImage(dinoImg, dino.x, dino.y, dino.width, dino.height);
+    } else {
+        ctx.fillStyle = "green";
+        ctx.fillRect(dino.x, dino.y, dino.width, dino.height);
+    }
 
-    // OBSTACLES
+    // Obstacles
     obstacles.forEach((obs, index) => {
         obs.x -= speed;
-        ctx.fillStyle = "red";
-        ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
+
+        if (imagesReady) {
+            ctx.drawImage(obstacleImg, obs.x, obs.y, obs.width, obs.height);
+        } else {
+            ctx.fillStyle = "red";
+            ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
+        }
 
         if (collision(dino, obs)) {
-            hitSound.play();
+            hitSound.currentTime = 0;
+            hitSound.play().catch(() => {});
             gameOver = true;
         }
 
@@ -112,29 +177,73 @@ function gameLoop() {
         }
     });
 
-    // SCORE
+    // Score
     score++;
-    ctx.fillStyle = "black";
+    ctx.fillStyle = "#000";
     ctx.fillText("Score: " + score, 10, 20);
 
-    // SPEED INCREASE
-    if (score % 500 === 0) speed += 0.5;
+    if (score % 200 === 0) speed += 0.3;
 
-    requestAnimationFrame(gameLoop);
+    if (!gameOver) requestAnimationFrame(gameLoop);
+    else showGameOver();
 }
 
-// SPAWN OBSTACLES
-setInterval(() => {
-    if (!gameOver) createObstacle();
-}, 1500);
-
-// GAME OVER SCREEN
+// =====================
+// GAME OVER
+// =====================
 function showGameOver() {
-    ctx.fillStyle = "black";
+    ctx.fillStyle = "#000";
     ctx.font = "20px Arial";
     ctx.fillText("Game Over 😵", 320, 90);
-    ctx.fillText("Press R to Restart", 290, 120);
+    ctx.fillText("Tap RESTART or Press R", 250, 120);
 }
 
-// START GAME
+// =====================
+// JUMP BUTTON
+// =====================
+const jumpBtn = document.createElement("button");
+jumpBtn.innerText = "JUMP";
+jumpBtn.style.position = "fixed";
+jumpBtn.style.bottom = "20px";
+jumpBtn.style.right = "20px";
+jumpBtn.style.padding = "16px 24px";
+jumpBtn.style.borderRadius = "12px";
+jumpBtn.style.background = "#2ecc71";
+jumpBtn.style.color = "white";
+jumpBtn.style.fontWeight = "bold";
+jumpBtn.style.zIndex = "1000";
+
+jumpBtn.addEventListener("click", () => {
+    jumpSound.currentTime = 0;
+    jumpSound.play().catch(() => {});
+    jump();
+});
+document.body.appendChild(jumpBtn);
+
+// =====================
+// RESTART BUTTON
+// =====================
+const restartBtn = document.createElement("button");
+restartBtn.innerText = "RESTART";
+restartBtn.style.position = "fixed";
+restartBtn.style.bottom = "20px";
+restartBtn.style.right = "140px";
+restartBtn.style.padding = "16px 20px";
+restartBtn.style.borderRadius = "12px";
+restartBtn.style.background = "#e74c3c";
+restartBtn.style.color = "white";
+restartBtn.style.fontWeight = "bold";
+restartBtn.style.zIndex = "1000";
+
+restartBtn.addEventListener("click", () => location.reload());
+document.body.appendChild(restartBtn);
+
+// =====================
+// SPAWN LOOP
+// =====================
+setInterval(() => {
+    if (!gameOver) createObstacle();
+}, spawnRate);
+
+// START
 gameLoop();
