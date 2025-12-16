@@ -1,17 +1,24 @@
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
+// =====================
 // SOUNDS
+// =====================
 const jumpSound = new Audio("sounds/jump.mp3");
 const hitSound = new Audio("sounds/hit.mp3");
 
-jumpSound.volume = 1;
+jumpSound.volume = 0.6; // comfortable for long sound
 hitSound.volume = 1;
 
+// =====================
+// GAME STATE
+// =====================
 let gameOver = false;
 let score = 0;
 
-// ---------- DINO ----------
+// =====================
+// DINO
+// =====================
 const dino = {
     x: 50,
     y: 140,
@@ -21,77 +28,55 @@ const dino = {
     onGround: true
 };
 
-// ---------- OBSTACLES ----------
+// =====================
+// OBSTACLES
+// =====================
 let obstacles = [];
 
-function unlockAudio() {
-    [jumpSound, hitSound].forEach(sound => {
-        sound.play().then(() => {
-            sound.pause();
-            sound.currentTime = 0;
-        }).catch(() => {});
-    });
-
-    document.removeEventListener("click", unlockAudio);
-    document.removeEventListener("touchstart", unlockAudio);
-}
-
-// Unlock on first user interaction
-document.addEventListener("click", unlockAudio);
-document.addEventListener("touchstart", unlockAudio);
-
 const gravity = 0.6;
-let speed = 6; // 🚀 FASTER START
-let spawnRate = 1500; // ⏱️ FASTER SPAWN
+let speed = 6;
+let spawnRate = 1500;
 
-/* =====================
-   UNLOCK AUDIO (ONCE)
-===================== */
-function unlockAudio() {
-    [jumpSound, hitSound].forEach(sound => {
-        sound.play().then(() => {
-            sound.pause();
-            sound.currentTime = 0;
-        }).catch(() => {});
-    });
+// =====================
+// SAFE AUDIO UNLOCK
+// =====================
+function unlockAudioSafe() {
+    const s1 = jumpSound.cloneNode();
+    const s2 = hitSound.cloneNode();
 
-    document.removeEventListener("click", unlockAudio);
-    document.removeEventListener("touchstart", unlockAudio);
+    s1.volume = 0;
+    s2.volume = 0;
+
+    s1.play().catch(() => {});
+    s2.play().catch(() => {});
+
+    document.removeEventListener("click", unlockAudioSafe);
+    document.removeEventListener("touchstart", unlockAudioSafe);
 }
-document.addEventListener("click", unlockAudio);
-document.addEventListener("touchstart", unlockAudio);
+document.addEventListener("click", unlockAudioSafe);
+document.addEventListener("touchstart", unlockAudioSafe);
 
-/* =====================
-   JUMP
-===================== */
+// =====================
+// JUMP (PHYSICS ONLY)
+// =====================
 function jump() {
     if (dino.onGround && !gameOver) {
         dino.velocityY = -13;
         dino.onGround = false;
-
-        jumpSound.currentTime = 0;
-        jumpSound.play().catch(() => {});
     }
 }
 
-/* =====================
-   CONTROLS
-===================== */
-// Keyboard
+// =====================
+// KEYBOARD CONTROLS (NO SOUND)
+// =====================
 document.addEventListener("keydown", (e) => {
     if (e.code === "Space" || e.code === "ArrowUp") jump();
     if (e.key === "r" && gameOver) location.reload();
 });
 
-// Mobile
-canvas.addEventListener("touchstart", (e) => {
-    e.preventDefault();
-    jump();
-}, { passive: false });
-
-/* =====================
-   CREATE OBSTACLE
-===================== */
+// =====================
+// CREATE OBSTACLE
+// =====================
 function createObstacle() {
     obstacles.push({
         x: canvas.width,
@@ -101,9 +86,9 @@ function createObstacle() {
     });
 }
 
-/* =====================
-   COLLISION
-===================== */
+// =====================
+// COLLISION
+// =====================
 function collision(a, b) {
     return (
         a.x < b.x + b.width &&
@@ -113,9 +98,9 @@ function collision(a, b) {
     );
 }
 
-/* =====================
-   GAME LOOP
-===================== */
+// =====================
+// GAME LOOP
+// =====================
 function gameLoop() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -159,7 +144,7 @@ function gameLoop() {
     ctx.fillStyle = "black";
     ctx.fillText("Score: " + score, 10, 20);
 
-    // 🚀 SPEED UP SMOOTHLY
+    // Speed increase
     if (score % 200 === 0) speed += 0.3;
 
     if (!gameOver) {
@@ -169,22 +154,81 @@ function gameLoop() {
     }
 }
 
-/* =====================
-   GAME OVER
-===================== */
+// =====================
+// GAME OVER
+// =====================
 function showGameOver() {
     ctx.fillStyle = "black";
     ctx.font = "20px Arial";
     ctx.fillText("Game Over 😵", 320, 90);
-    ctx.fillText("Tap or Press R to Restart", 250, 120);
+    ctx.fillText("Tap RESTART or Press R", 270, 120);
 }
 
-/* =====================
-   SPAWN LOOP
-===================== */
+// =====================
+// JUMP BUTTON (ALWAYS PLAYS SOUND)
+// =====================
+const jumpBtn = document.createElement("button");
+jumpBtn.innerText = "JUMP";
+
+jumpBtn.style.position = "fixed";
+jumpBtn.style.bottom = "20px";
+jumpBtn.style.right = "20px";
+jumpBtn.style.padding = "16px 24px";
+jumpBtn.style.fontSize = "18px";
+jumpBtn.style.border = "none";
+jumpBtn.style.borderRadius = "12px";
+jumpBtn.style.background = "#2ecc71";
+jumpBtn.style.color = "white";
+jumpBtn.style.fontWeight = "bold";
+jumpBtn.style.zIndex = "1000";
+
+jumpBtn.addEventListener("click", () => {
+    jumpSound.currentTime = 0; // 🔁 restart sound EVERY press
+    jumpSound.play().catch(() => {});
+    jump();
+});
+
+jumpBtn.addEventListener("touchstart", (e) => {
+    e.preventDefault();
+    jumpSound.currentTime = 0;
+    jumpSound.play().catch(() => {});
+    jump();
+}, { passive: false });
+
+document.body.appendChild(jumpBtn);
+
+// =====================
+// RESTART BUTTON
+// =====================
+const restartBtn = document.createElement("button");
+restartBtn.innerText = "RESTART";
+
+restartBtn.style.position = "fixed";
+restartBtn.style.bottom = "20px";
+restartBtn.style.right = "140px";
+restartBtn.style.padding = "16px 20px";
+restartBtn.style.fontSize = "16px";
+restartBtn.style.border = "none";
+restartBtn.style.borderRadius = "12px";
+restartBtn.style.background = "#e74c3c";
+restartBtn.style.color = "white";
+restartBtn.style.fontWeight = "bold";
+restartBtn.style.zIndex = "1000";
+
+restartBtn.addEventListener("click", () => location.reload());
+restartBtn.addEventListener("touchstart", (e) => {
+    e.preventDefault();
+    location.reload();
+}, { passive: false });
+
+document.body.appendChild(restartBtn);
+
+// =====================
+// SPAWN LOOP
+// =====================
 setInterval(() => {
     if (!gameOver) createObstacle();
 }, spawnRate);
 
-// START
+// START GAME
 gameLoop();
