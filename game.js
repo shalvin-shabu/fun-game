@@ -161,7 +161,7 @@ function showGameOver() {
     ctx.fillStyle = "black";
     ctx.font = "20px Arial";
     ctx.fillText("Game Over 😵", 320, 90);
-    ctx.fillText("Tap RESTART or Press R", 270, 120);
+    ctx.fillText(" REFRESH or Press R", 270, 120);
 }
 
 // =====================
